@@ -367,7 +367,10 @@ export const getUserByUsername = async (username: string): Promise<User | null> 
 };
 
 // Cập nhật thông tin user (password, phone)
-export const updateUser = async (id: number, fields: { password?: string; phone?: string | null }): Promise<void> => {
+export const updateUser = async (
+    id: number,
+    fields: { password?: string; phone?: string | null; username?: string; isAdmin?: number }
+): Promise<void> => {
     try {
         const db = getDatabase();
         const updates: string[] = [];
@@ -379,6 +382,14 @@ export const updateUser = async (id: number, fields: { password?: string; phone?
         if (fields.phone !== undefined) {
             updates.push('phone = ?');
             params.push(fields.phone || null);
+        }
+        if (fields.username !== undefined) {
+            updates.push('username = ?');
+            params.push(fields.username);
+        }
+        if (fields.isAdmin !== undefined) {
+            updates.push('isAdmin = ?');
+            params.push(fields.isAdmin);
         }
         if (updates.length === 0) return;
         params.push(id);
@@ -460,6 +471,24 @@ export const updateOrderStatus = async (orderId: number, status: string): Promis
         await db.runAsync('UPDATE orders SET status = ? WHERE id = ?;', [status, orderId]);
     } catch (error) {
         console.error('Error updating order status:', error);
+        throw error;
+    }
+};
+
+// Lấy tất cả user (trừ admin nếu cần)
+export const fetchAllUsers = async (options?: { excludeAdmin?: boolean }): Promise<User[]> => {
+    try {
+        const db = getDatabase();
+        let sql = 'SELECT id, username, isAdmin, phone, createdAt FROM users';
+        let params: any[] = [];
+        if (options?.excludeAdmin) {
+            sql += ' WHERE isAdmin = 0';
+        }
+        sql += ' ORDER BY createdAt DESC';
+        const result = await db.getAllAsync(sql, params);
+        return result.map((u: any) => ({ ...u, isAdmin: !!u.isAdmin }));
+    } catch (error) {
+        console.error('Error fetching all users:', error);
         throw error;
     }
 };

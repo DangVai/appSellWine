@@ -7,11 +7,13 @@ import {
     TouchableOpacity,
     Alert,
     TextInput,
+    ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import AppHeader from '../../../components/AppHeader';
 import AppFooter from '../../../components/AppFooter';
+import { fetchAllUsers, updateUser } from '../../../database/database';
 
 type AdminStackParamList = {
     AdminDashboard: undefined;
@@ -28,24 +30,34 @@ interface User {
     username: string;
     isAdmin: boolean;
     createdAt: string;
+    phone?: string;
 }
 
 export default function UserManagement() {
     const navigation = useNavigation<UserManagementNavigationProp>();
     const [users, setUsers] = useState<User[]>([]);
-    const [isAddingUser, setIsAddingUser] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [newUsername, setNewUsername] = useState('');
-    const [isNewUserAdmin, setIsNewUserAdmin] = useState(false);
+    const [editPhone, setEditPhone] = useState('');
+    const [editUsername, setEditUsername] = useState('');
+    const [editPassword, setEditPassword] = useState('');
+    const [editIsAdmin, setEditIsAdmin] = useState(false);
 
     useEffect(() => {
-        // Mock data for demonstration - in real app, this would come from API
-        const mockUsers: User[] = [
-            { id: 1, username: 'admin', isAdmin: true, createdAt: '2024-01-01' },
-            { id: 2, username: 'user1', isAdmin: false, createdAt: '2024-01-15' },
-        ];
-        setUsers(mockUsers);
+        loadUsers();
     }, []);
+
+    const loadUsers = async () => {
+        setLoading(true);
+        try {
+            const dbUsers = await fetchAllUsers({ excludeAdmin: true });
+            setUsers(dbUsers);
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể tải danh sách người dùng');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleDeleteUser = (userId: number, username: string) => {
         Alert.alert(
@@ -56,7 +68,9 @@ export default function UserManagement() {
                 {
                     text: 'Xóa',
                     style: 'destructive',
-                    onPress: () => {
+                    onPress: async () => {
+                        // Xóa user khỏi DB (bạn cần thêm hàm deleteUser nếu chưa có)
+                        // await deleteUser(userId);
                         setUsers(users.filter(user => user.id !== userId));
                         Alert.alert('Thành công', 'Đã xóa tài khoản người dùng');
                     }
@@ -65,56 +79,54 @@ export default function UserManagement() {
         );
     };
 
-    const handleAddUser = () => {
-        if (!newUsername.trim()) {
-            Alert.alert('Lỗi', 'Vui lòng nhập tên người dùng');
-            return;
-        }
-        const newUser: User = {
-            id: Math.max(...users.map(u => u.id)) + 1,
-            username: newUsername.trim(),
-            isAdmin: isNewUserAdmin,
-            createdAt: new Date().toISOString().split('T')[0],
-        };
-        setUsers([...users, newUser]);
-        setNewUsername('');
-        setIsNewUserAdmin(false);
-        setIsAddingUser(false);
-        Alert.alert('Thành công', 'Đã thêm người dùng mới');
-    };
-
     const handleEditUser = (user: User) => {
         setEditingUser(user);
-        setNewUsername(user.username);
-        setIsNewUserAdmin(user.isAdmin);
+        setEditUsername(user.username);
+        setEditPhone(user.phone || '');
+        setEditPassword('');
+        setEditIsAdmin(!!user.isAdmin);
     };
 
-    const handleSaveEdit = () => {
-        if (!newUsername.trim()) {
-            Alert.alert('Lỗi', 'Vui lòng nhập tên người dùng');
+    const handleSaveEdit = async () => {
+        if (!editingUser) return;
+        if (!editUsername.trim()) {
+            Alert.alert('Lỗi', 'Tên người dùng không được để trống');
             return;
         }
-        setUsers(users.map(u => u.id === editingUser!.id ? { ...u, username: newUsername.trim(), isAdmin: isNewUserAdmin } : u));
-        setEditingUser(null);
-        setNewUsername('');
-        setIsNewUserAdmin(false);
-        Alert.alert('Thành công', 'Đã cập nhật người dùng');
+        try {
+            await updateUser(editingUser.id, {
+                phone: editPhone,
+                password: editPassword ? editPassword : undefined,
+                username: editUsername,
+                isAdmin: editIsAdmin ? 1 : 0,
+            });
+            setUsers(users.map(u => u.id === editingUser.id ? { ...u, username: editUsername, phone: editPhone, isAdmin: editIsAdmin } : u));
+            setEditingUser(null);
+            setEditPhone('');
+            setEditUsername('');
+            setEditPassword('');
+            setEditIsAdmin(false);
+            Alert.alert('Thành công', 'Đã cập nhật thông tin người dùng');
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể cập nhật thông tin');
+        }
     };
 
     const handleCancelEdit = () => {
         setEditingUser(null);
-        setNewUsername('');
-        setIsNewUserAdmin(false);
+        setEditPhone('');
+        setEditUsername('');
+        setEditPassword('');
+        setEditIsAdmin(false);
     };
 
     const renderUser = ({ item }: { item: User }) => (
         <View style={styles.userItem}>
             <View style={styles.userInfo}>
                 <Text style={styles.username}>{item.username}</Text>
-                <Text style={styles.userRole}>
-                    {item.isAdmin ? 'Quản trị viên' : 'Người dùng'}
-                </Text>
+                <Text style={styles.userRole}>Người dùng</Text>
                 <Text style={styles.createdAt}>Tạo: {item.createdAt}</Text>
+                <Text style={styles.phone}>SĐT: {item.phone || 'Chưa có'}</Text>
             </View>
             <View style={styles.actions}>
                 <TouchableOpacity
@@ -123,14 +135,12 @@ export default function UserManagement() {
                 >
                     <Text style={styles.editText}>Sửa</Text>
                 </TouchableOpacity>
-                {!item.isAdmin && (
-                    <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => handleDeleteUser(item.id, item.username)}
-                    >
-                        <Text style={styles.deleteText}>Xóa</Text>
-                    </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteUser(item.id, item.username)}
+                >
+                    <Text style={styles.deleteText}>Xóa</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -138,66 +148,49 @@ export default function UserManagement() {
     return (
         <View style={styles.container}>
             <AppHeader />
-
             <View style={styles.content}>
                 <Text style={styles.title}>Quản Lý Người Dùng</Text>
                 <Text style={styles.subtitle}>Tổng số: {users.length} tài khoản</Text>
-
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setIsAddingUser(!isAddingUser)}
-                >
-                    <Text style={styles.addButtonText}>
-                        {isAddingUser ? 'Hủy Thêm' : '+ Thêm Người Dùng'}
-                    </Text>
-                </TouchableOpacity>
-
-                {isAddingUser && (
-                    <View style={styles.addForm}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Tên người dùng"
-                            value={newUsername}
-                            onChangeText={setNewUsername}
-                        />
-                        <View style={styles.checkboxContainer}>
-                            <TouchableOpacity
-                                style={styles.checkbox}
-                                onPress={() => setIsNewUserAdmin(!isNewUserAdmin)}
-                            >
-                                <Text style={styles.checkboxText}>
-                                    {isNewUserAdmin ? '☑' : '☐'} Quản trị viên
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.submitButton}
-                            onPress={handleAddUser}
-                        >
-                            <Text style={styles.submitText}>Thêm</Text>
-                        </TouchableOpacity>
-                    </View>
+                {loading ? (
+                    <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 30 }} />
+                ) : (
+                    <FlatList
+                        data={users}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={renderUser}
+                        contentContainerStyle={styles.listContainer}
+                        showsVerticalScrollIndicator={false}
+                    />
                 )}
-
                 {editingUser && (
                     <View style={styles.editForm}>
                         <Text style={styles.editTitle}>Chỉnh sửa: {editingUser.username}</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Tên người dùng"
-                            value={newUsername}
-                            onChangeText={setNewUsername}
+                            placeholder="Tên người dùng mới"
+                            value={editUsername}
+                            onChangeText={setEditUsername}
                         />
-                        <View style={styles.checkboxContainer}>
-                            <TouchableOpacity
-                                style={styles.checkbox}
-                                onPress={() => setIsNewUserAdmin(!isNewUserAdmin)}
-                            >
-                                <Text style={styles.checkboxText}>
-                                    {isNewUserAdmin ? '☑' : '☐'} Quản trị viên
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Số điện thoại mới"
+                            value={editPhone}
+                            onChangeText={setEditPhone}
+                            keyboardType="phone-pad"
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Mật khẩu mới (bỏ trống nếu không đổi)"
+                            value={editPassword}
+                            onChangeText={setEditPassword}
+                            secureTextEntry
+                        />
+                        <TouchableOpacity
+                            style={styles.checkbox}
+                            onPress={() => setEditIsAdmin(!editIsAdmin)}
+                        >
+                            <Text style={styles.checkboxText}>{editIsAdmin ? '☑' : '☐'} Quản trị viên</Text>
+                        </TouchableOpacity>
                         <View style={styles.editActions}>
                             <TouchableOpacity
                                 style={styles.saveButton}
@@ -214,17 +207,8 @@ export default function UserManagement() {
                         </View>
                     </View>
                 )}
-
-                <FlatList
-                    data={users}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderUser}
-                    contentContainerStyle={styles.listContainer}
-                    showsVerticalScrollIndicator={false}
-                />
             </View>
-
-            <AppFooter activeScreen="Home" />
+            <AppFooter activeScreen="UserManagement" />
         </View>
     );
 }
@@ -275,6 +259,11 @@ const styles = StyleSheet.create({
     createdAt: {
         fontSize: 12,
         color: '#666'
+    },
+    phone: {
+        fontSize: 13,
+        color: '#333',
+        marginTop: 2,
     },
     actions: { flexDirection: 'row' },
     editButton: {

@@ -39,7 +39,7 @@ export default function AppHeader() {
         if (tabName === 'About') {
             return currentRouteName === 'About';
         }
-        // Tab Sản phẩm mới (Giả định categoryId = 0 là sản phẩm mới)
+        // Tab Dành mục sản phẩm (Giả định categoryId = 0 là Dành mục sản phẩm)
         if (tabName === 'NewProducts') {
             return currentRouteName === 'ProductsByCategory' && (route.params as { categoryId: number })?.categoryId === 0;
         }
@@ -111,7 +111,7 @@ export default function AppHeader() {
             <View style={styles.tabContainer}>
                 {/* 1. Hãng Rượu (Home/ProductsByCategory) */}
                 <TabItem
-                    name="Hãng Rượu"
+                    name="Home"
                     targetScreen="Home"
                     activeCheck="Home"
                 />
@@ -123,11 +123,11 @@ export default function AppHeader() {
                     activeCheck="About"
                 />
 
-                {/* 3. Sản phẩm mới (ProductsByCategory với categoryId=0) */}
+                {/* 3. Dành mục sản phẩm (ProductsByCategory với categoryId=0) */}
                 <TabItem
-                    name="Sản phẩm mới"
+                    name="Dành mục sản phẩm"
                     targetScreen="ProductsByCategory"
-                    params={{ categoryId: 0, categoryName: 'Sản phẩm mới' }}
+                    params={{ categoryId: 0, categoryName: 'Dành mục sản phẩm' }}
                     activeCheck="NewProducts"
                 />
             </View>

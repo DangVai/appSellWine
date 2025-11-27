@@ -25,6 +25,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you pick images for products.",
+          "cameraPermission": "The app accesses your camera to let you take photos for products."
+        }
+      ]
+    ]
   }
 }

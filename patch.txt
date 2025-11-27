@@ -1,0 +1,17 @@
+const ordersColumns = ordersTableInfo.map((row: any) => row.name);
+if (!ordersColumns.includes('phone')) {
+    await db.execAsync(`
+      ALTER TABLE orders ADD COLUMN phone TEXT;
+    `);
+}
+
+// Add phone column to users table if it doesn't exist (for existing databases)
+const usersTableInfo = await db.getAllAsync('PRAGMA table_info(users);');
+const usersColumns = usersTableInfo.map((row: any) => row.name);
+if (!usersColumns.includes('phone')) {
+    await db.execAsync(`
+      ALTER TABLE users ADD COLUMN phone TEXT;
+    `);
+}
+=======
+// Moved top-level await statements inside initializeDatabase function to fix top-level await usage

@@ -1,0 +1,3 @@
+- [x] Update route params type in AddProduct.tsx to include productId
+- [x] Add logic in useEffect to load product data when productId is present
+- [x] Set editing mode and populate form fields when editing
